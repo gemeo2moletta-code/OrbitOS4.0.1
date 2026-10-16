@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Baixar codigo
+      - name: Baixar projeto
         uses: actions/checkout@v4
 
       - name: Instalar Python
@@ -22,15 +22,27 @@ jobs:
       - name: Instalar PlatformIO
         run: pip install platformio
 
-      - name: Compilar OrbitOS
-        run: pio run -e esp32dev
+      - name: Localizar projeto e compilar
+        shell: bash
+        run: |
+          PROJECT_FILE=$(find . -name platformio.ini -not -path '*/.pio/*' -print -quit)
+
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "::error::Arquivo platformio.ini nao encontrado no repositorio!"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$PROJECT_FILE")
+          echo "Projeto encontrado em: $PROJECT_DIR"
+
+          pio run -d "$PROJECT_DIR" -e esp32dev
+
+          mkdir -p firmware-output
+          cp "$PROJECT_DIR/.pio/build/esp32dev/"*.bin firmware-output/
 
       - name: Disponibilizar firmware
         uses: actions/upload-artifact@v4
         with:
           name: OrbitOS-4.0-Firmware
-          path: |
-            .pio/build/esp32dev/firmware.bin
-            .pio/build/esp32dev/bootloader.bin
-            .pio/build/esp32dev/partitions.bin
+          path: firmware-output/*.bin
           if-no-files-found: error
